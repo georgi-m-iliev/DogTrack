@@ -5,22 +5,22 @@
 
 #define CE_PIN 9
 #define CSN_PIN 10
-#define INTERVAL_MS_SIGNAL_LOST 1000
-#define INTERVAL_MS_SIGNAL_RETRY 250
+
+#define BLUETOOTH_RX 4
+#define BLUETOOTH_TX 3
 
 RF24 radio(CE_PIN, CSN_PIN);
-SoftwareSerial bluetooth(3, 4);
+SoftwareSerial bluetooth(BLUETOOTH_RX, BLUETOOTH_TX);
 
 const byte address[6] = "00001";
-struct payload {
-  double longitude;
+struct {
   double latitude;
+  double longitude;
 } payload;
 
-unsigned long lastSignalMillis = 0;
-
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
+  bluetooth.begin(9600);
   radio.begin();
   radio.setAutoAck(false);  //(true|false)
   radio.setDataRate(RF24_250KBPS);  //(RF24_250KBPS|RF24_1MBPS|RF24_2MBPS)
@@ -28,28 +28,21 @@ void setup() {
   radio.setPayloadSize(sizeof(payload));
   radio.openReadingPipe(0, address);
   radio.startListening();
-  bluetooth.begin(115200);
 }
 
 void loop() {
-  unsigned long currentMillis = millis();
-  if (radio.available() > 0) {
+  if(radio.available()) {
     radio.read(&payload, sizeof(payload));
     Serial.print("Latitude: ");
-    Serial.println(payload.latitude);
+    Serial.println(payload.latitude, 6);
     Serial.print("Longitude: ");
-    Serial.println(payload.longitude);
+    Serial.println(payload.longitude, 6);
 
-    bluetooth.write(&payload);
+    bluetooth.print(payload.latitude, 6);
+    bluetooth.print(" ");
+    bluetooth.print(payload.longitude, 6);
+    bluetooth.print('\n');
 
-    lastSignalMillis = currentMillis;
+    Serial.println("Payload sent successfully to bluetooth interface!");
   }
-  if (currentMillis - lastSignalMillis > INTERVAL_MS_SIGNAL_LOST) {
-    lostConnection();
-  }
-}
-
-void lostConnection() {
-  Serial.println("We have lost connection, preventing unwanted behavior");
-  delay(INTERVAL_MS_SIGNAL_RETRY);
 }
